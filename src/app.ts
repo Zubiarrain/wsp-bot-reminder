@@ -22,6 +22,7 @@ const notAsistFlow = addKeyword(EVENTS.ACTION)
 
 const resheduledFlow = addKeyword(EVENTS.ACTION)
 .addAction(async (_, { flowDynamic, state }) => {
+    console.log('resheduled')
     await flowDynamic(state.get('resheduleClientMessage'))
 })
 .addAction(async (_, { state, provider }) => {
@@ -40,6 +41,7 @@ const optionsFlow = addKeyword(EVENTS.ACTION)
     { capture: true },
     async (ctx, { gotoFlow }) => {
         const userAnswer = ctx.body
+        console.log(userAnswer)
         if(userAnswer === '1'){
             return gotoFlow(asistFlow)
         } 
@@ -107,6 +109,7 @@ const main = async () => {
                 const messages = createMessages(
                     companyName,companyPhoneNumber,appointment.appointmentDate,appointment.appointmentHour,appointment.clientPhoneNumber,appointment.clientName
                 )
+                console.log(messages)
                 bot.state(appointment.clientPhoneNumber).update({notificationMessage:messages.notificationMessage})
                 bot.state(appointment.clientPhoneNumber).update({assistMessage:messages.assistMessage})
                 bot.state(appointment.clientPhoneNumber).update({notAssistClientMessage:messages.notAssistClientMessage})
