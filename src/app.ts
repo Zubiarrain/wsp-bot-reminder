@@ -28,9 +28,12 @@ const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
     const messages = await service.processPatientResponse(ctx.from, ctx.body);
     if (messages.clinicResponse) {
       const prov: BaileysProvider = provider;
-      prov.vendor.sendMessage(`${messages.clinicPhoneNumber}@s.whatsapp.net`, {
-        text: messages.clinicResponse,
-      });
+      prov.vendor.sendMessage(
+        `${messages.reprogrammingPhoneNumber}@s.whatsapp.net`,
+        {
+          text: messages.clinicResponse,
+        }
+      );
     }
     return endFlow(messages.patientResponse);
   }

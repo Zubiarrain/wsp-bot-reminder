@@ -153,7 +153,7 @@ ESTA LINEA NO RESPONDE MENSAJES`;
     patientPhoneNumber: string,
     response: string
   ): Promise<{
-    clinicPhoneNumber: string;
+    reprogrammingPhoneNumber: string;
     clinicResponse: string | null;
     patientResponse: string;
   }> {
@@ -197,7 +197,7 @@ ESTA LINEA NO RESPONDE MENSAJES`;
 
     if (patientAppointments.length === 0) {
       return {
-        clinicPhoneNumber: null,
+        reprogrammingPhoneNumber: null,
         clinicResponse: null,
         patientResponse:
           "Usted no tiene turnos registrados.\n\n*ESTA LINEA NO RESPONDE MENSAJES*",
@@ -227,13 +227,13 @@ ${row[4]} (hora turno)
     ) {
       const firstAppointmentIndex = patientAppointments[0].index;
       const firstAppointmentRow = patientAppointments[0].row;
-      const clinicPhoneNumber = patientAppointments[0].row[8];
+      const reprogrammingPhoneNumber = patientAppointments[0].row[7];
 
       const clinicResponse = getClinicResponse(firstAppointmentRow);
       await updateRow(firstAppointmentIndex);
 
       return {
-        clinicPhoneNumber,
+        reprogrammingPhoneNumber,
         clinicResponse,
         patientResponse:
           "Su turno fue cancelado con éxito. Muchas gracias por avisar.",
@@ -245,7 +245,7 @@ ${row[4]} (hora turno)
       const turnIndex = Number(response) - 1;
       if (turnIndex >= patientAppointments.length) {
         return {
-          clinicPhoneNumber: null,
+          reprogrammingPhoneNumber: null,
           clinicResponse: null,
           patientResponse:
             "No existe turno con ese número. Por favor vuelva a intentarlo o comuníquese con la clínica.",
@@ -254,11 +254,11 @@ ${row[4]} (hora turno)
       if (turnIndex >= 0) {
         const { index, row } = patientAppointments[turnIndex];
         await updateRow(index);
-        const clinicPhoneNumber = patientAppointments[turnIndex].row[8];
+        const reprogrammingPhoneNumber = patientAppointments[0].row[7];
         const clinicResponse = getClinicResponse(row);
 
         return {
-          clinicPhoneNumber,
+          reprogrammingPhoneNumber,
           clinicResponse,
           patientResponse:
             "Su turno fue cancelado con éxito. Muchas gracias por avisar.\n\nSi quiere cancelar otro turno, escriba el número correspondiente a ese.",
@@ -270,7 +270,7 @@ ${row[4]} (hora turno)
     const reprogrammingPhoneNumber = patientAppointments[0].row[7];
     const clinicPhoneNumber = patientAppointments[0].row[8];
     return {
-      clinicPhoneNumber: null,
+      reprogrammingPhoneNumber: null,
       clinicResponse: null,
       patientResponse: `👉🏽Si usted quiere reprogramar su turno favor de comunicarse al +${reprogrammingPhoneNumber}. Muchas gracias!
   
