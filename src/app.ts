@@ -72,10 +72,13 @@ const main = async () => {
   adapterProvider.server.post(
     "/v1/register",
     handleCtx(async (bot, req, res) => {
+      console.log("Llegó post");
       const appointments: Appointment[] = await service.fetchAppointments();
       const appointmentSent: Appointment[] = [];
+      console.log(`Tenemos ${appointments.length} turnos`);
       for (let index = 0; index < appointments.length; index++) {
         const appointment = appointments[index];
+        console.log(`Enviando a ${appointment.patientPhoneNumber}...`);
         const onWhats = await bot.provider.vendor.onWhatsApp(
           appointment.patientPhoneNumber
         );
@@ -90,6 +93,7 @@ const main = async () => {
           });
 
           appointmentSent.push(appointment);
+          console.log("Enviado");
         }
 
         await new Promise((resolve) =>
