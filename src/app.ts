@@ -15,7 +15,6 @@ import { composingRandomTime, getRandomTimeWaiting } from "./utils/waitTime";
 import { config } from "dotenv";
 config();
 
-const PHONE_NUMBER = process.env.PHONE_NUMBER;
 const PORT = process.env.PORT ?? 3008;
 
 const registerFlow = addKeyword(utils.setEvent("REGISTER_FLOW")).addAction(
@@ -51,8 +50,6 @@ const main = async () => {
         numberId: config.metaNumberId,
         verifyToken: config.metaVerifyToken,
         version: config.metaVersion, */
-      usePairingCode: true,
-      phoneNumber: PHONE_NUMBER,
       experimentalStore: true, // Significantly reduces resource consumption
       timeRelease: 360000 * 24, // Cleans up data every 24 hours (in milliseconds)
     }
