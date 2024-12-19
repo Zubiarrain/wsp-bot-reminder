@@ -37,7 +37,7 @@ WORKDIR /app
 
 # Expose the necessary port
 ARG PORT
-ENV PORT $PORT
+ENV PORT=$PORT
 EXPOSE $PORT
 
 # Copy only necessary files and directories for deployment
