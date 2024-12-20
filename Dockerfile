@@ -1,51 +1,40 @@
-# Use the official Node.js image as the base image for building the application.
+# Image size ~ 400MB
 FROM node:21-alpine3.18 as builder
 
-# Enable Corepack and prepare for PNPM installation
+WORKDIR /app
+
 RUN corepack enable && corepack prepare pnpm@latest --activate
 ENV PNPM_HOME=/usr/local/bin
 
-# Set the working directory inside the container
-WORKDIR /app
-
-# Copy package.json files to the working directory
-COPY package*.json ./
-
-# Install git for potential dependencies
-RUN apk add --no-cache git
-
-# Install PM2 globally using PNPM
-RUN pnpm install pm2 -g
-
-# Copy the application source code into the container
 COPY . .
 
-# Install dependencies using PNPM
-RUN pnpm install
+COPY package*.json *-lock.yaml ./
 
-# Build the TypeScript application
-RUN pnpm run build
+RUN apk add --no-cache --virtual .gyp \
+        python3 \
+        make \
+        g++ \
+    && apk add --no-cache git \
+    && pnpm install && pnpm run build \
+    && apk del .gyp
 
-# Move app.js from dist to src and delete app.ts
-RUN mv dist/app.js src/app.js && rm src/app.ts
+FROM node:21-alpine3.18 as deploy
 
-# Create a new stage for deployment
-FROM builder as deploy
-
-# Set the working directory inside the container
 WORKDIR /app
 
-# Expose the necessary port
 ARG PORT
 ENV PORT=$PORT
 EXPOSE $PORT
 
-# Copy only necessary files and directories for deployment
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/package.json ./
+COPY --from=builder /app/assets ./assets
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/*.json /app/*-lock.yaml ./
 
-# Install production dependencies using frozen lock file
-RUN pnpm install --frozen-lockfile --production
+RUN corepack enable && corepack prepare pnpm@latest --activate 
+ENV PNPM_HOME=/usr/local/bin
 
-# Define the command to start the application using PM2 runtime with a cron pattern
-CMD ["pm2-runtime", "start", "./src/app.js", "--cron", "0 4 * * *"]
+RUN npm cache clean --force && pnpm install --production --ignore-scripts \
+    && addgroup -g 1001 -S nodejs && adduser -S -u 1001 nodejs \
+    && rm -rf $PNPM_HOME/.npm $PNPM_HOME/.node-gyp
+
+CMD ["npm", "start"]
