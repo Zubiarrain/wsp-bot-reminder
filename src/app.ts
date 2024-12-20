@@ -16,6 +16,7 @@ import { config } from "dotenv";
 config();
 
 const PORT = process.env.PORT ?? 3008;
+const PHONE_NUMBER = process.env.PHONE_NUMBER;
 
 const registerFlow = addKeyword(utils.setEvent("REGISTER_FLOW")).addAction(
   async (ctx, { state, endFlow, provider }) => {
@@ -50,6 +51,8 @@ const main = async () => {
         numberId: config.metaNumberId,
         verifyToken: config.metaVerifyToken,
         version: config.metaVersion, */
+      usePairingCode: true,
+      phoneNumber: PHONE_NUMBER,
       experimentalStore: true, // Significantly reduces resource consumption
       timeRelease: 360000 * 24, // Cleans up data every 24 hours (in milliseconds)
     }
