@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  whatsapp-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - PORT=${PORT}
+    env_file:
+      - .env
+    ports:
+      - "${PORT}:${PORT}"
+    restart: unless-stopped
