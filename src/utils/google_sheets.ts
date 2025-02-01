@@ -2,20 +2,14 @@ import { google, sheets_v4 } from "googleapis";
 import { config } from "~/config";
 import { AppointmentInfo } from "~/definitions/appointmentInfo";
 import { Appointment } from "~/definitions/appointment";
+import { SheetService } from "~/service/sheetsService";
+import { ProcessPacientResponse } from "~/definitions/processPacientResponse";
 
 class AppointmentService {
-  private sheets: sheets_v4.Sheets;
+  private sheetService: SheetService;
 
   constructor() {
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        private_key: config.privateKey,
-        client_email: config.clientEmail,
-      },
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-
-    this.sheets = google.sheets({ version: "v4", auth });
+    this.sheetService = new SheetService(config.sheetId);
   }
 
   private createMultiAppointmentMessage(
@@ -30,51 +24,40 @@ class AppointmentService {
 🏥 ${appt.clinicName}`
       )
       .join("\n\n");
+    const message = [
+      `Hola ${appointments[0].patientName}, tiene los siguientes turnos para mañana:`,
+      `${turnosListado}`,
+      `❌ Si desea cancelar este turno, responda con la palabra "Cancelar".`,
+      `👉🏽Para reprogramaciones, comuníquese al +${appointments[0].reprogrammingPhoneNumber}.`,
+      `👉🏽Por cualquier consulta, contacte a la clínica: +${appointments[0].clinicPhoneNumber}.`,
+      "ESTA LINEA NO RESPONDE MENSAJES",
+    ].join("\n\n");
 
-    return `Hola ${appointments[0].patientName}, tiene los siguientes turnos para mañana:
-  
-${turnosListado}
-  
-❌Si desea cancelar alguno, responda con el número correspondiente al turno. Muchas gracias!
-  
-👉🏽Si usted quiere reprogramar su turno favor de comunicarse al +${appointments[0].reprogrammingPhoneNumber}. Muchas gracias!
-
-👉🏽Por cualquier otra consulta comunicarse con la clínica directamente +${appointments[0].clinicPhoneNumber} .
-
-ESTA LINEA NO RESPONDE MENSAJES`;
+    return message;
   }
 
   private createMessage(appointments: AppointmentInfo[]): string {
     if (appointments.length === 1) {
       const [appt] = appointments;
-      return `Hola ${appt.patientName}, este es un recordatorio de su turno mañana:
-  
-🗓️ ${appt.appointmentHour} hs
-👩‍⚕️ ${appt.doctorName}
-🏥 ${appt.clinicName}
-
-❌ Si desea cancelar este turno, responda con la palabra "Cancelar".
-
-👉🏽Para reprogramaciones, comuníquese al +${appt.reprogrammingPhoneNumber}.
-
-👉🏽Por cualquier consulta, contacte a la clínica: +${appt.clinicPhoneNumber}.
-
-ESTA LINEA NO RESPONDE MENSAJES`;
+      const message = [
+        `Hola ${appt.patientName}, este es un recordatorio de su turno mañana:`,
+        `🗓️ ${appt.appointmentHour} hs`,
+        `👩‍⚕️ ${appt.doctorName}`,
+        `🏥 ${appt.clinicName}`,
+        `❌ Si desea cancelar este turno, responda con la palabra "Cancelar".`,
+        `👉🏽Para reprogramaciones, comuníquese al +${appt.reprogrammingPhoneNumber}.`,
+        `👉🏽Por cualquier consulta, contacte a la clínica: +${appt.clinicPhoneNumber}.`,
+        "ESTA LINEA NO RESPONDE MENSAJES",
+      ].join("\n\n");
+      return message;
     } else {
       return this.createMultiAppointmentMessage(appointments);
     }
   }
 
   public async fetchAppointments(): Promise<Appointment[]> {
-    const sheetId = config.sheetId;
-
     // Leer datos del Google Sheet
-    const response = await this.sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: "Turnos!A:K",
-    });
-
-    const rows = response.data.values || [];
+    const rows = (await this.sheetService.getRows("Turnos!A:K")) || [];
 
     if (rows.length <= 1) {
       return [];
@@ -126,8 +109,6 @@ ESTA LINEA NO RESPONDE MENSAJES`;
   }
 
   public async markAsSent(appointmentsSent: Appointment[]) {
-    const sheetId = config.sheetId;
-
     // Generar actualizaciones para las filas correspondientes
     const updates = appointmentsSent.flatMap((appointment) =>
       appointment.rows.map((rowIndex) => ({
@@ -137,14 +118,7 @@ ESTA LINEA NO RESPONDE MENSAJES`;
     );
 
     // Aplicar los cambios en lote
-    console.log(updates);
-    await this.sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId: sheetId,
-      requestBody: {
-        data: updates,
-        valueInputOption: "RAW",
-      },
-    });
+    await this.sheetService.batchUpdateSlots(updates);
 
     return;
   }
@@ -152,20 +126,9 @@ ESTA LINEA NO RESPONDE MENSAJES`;
   public async processPatientResponse(
     patientPhoneNumber: string,
     response: string
-  ): Promise<{
-    reprogrammingPhoneNumber: string;
-    clinicResponse: string | null;
-    patientResponse: string;
-  }> {
-    const sheetId = config.sheetId;
-
+  ): Promise<ProcessPacientResponse> {
     // Leer datos del Google Sheet
-    const responseData = await this.sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: "Turnos!A:L",
-    });
-
-    const rows = responseData.data.values || [];
+    const rows = (await this.sheetService.getRows("Turnos!A:L")) || [];
     const appointments = rows.slice(1);
 
     // Obtener fecha de hoy y mañana
@@ -197,27 +160,24 @@ ESTA LINEA NO RESPONDE MENSAJES`;
 
     if (patientAppointments.length === 0) {
       return {
-        reprogrammingPhoneNumber: null,
-        clinicResponse: null,
         patientResponse:
           "Usted no tiene turnos registrados.\n\n*ESTA LINEA NO RESPONDE MENSAJES*",
       };
     }
 
     const updateRow = async (index: number) => {
-      await this.sheets.spreadsheets.values.update({
-        spreadsheetId: sheetId,
-        range: `Turnos!K${index + 2}:L${index + 2}`,
-        valueInputOption: "RAW",
-        requestBody: { values: [[true, response]] },
-      });
+      const range = `Turnos!K${index + 2}:L${index + 2}`;
+      await this.sheetService.updateSlots(range, [true, response]);
     };
 
     const getClinicResponse = (row: any[]) => {
-      return `${row[6]} (profesional)
-${row[2].toUpperCase()}, ${row[1].toUpperCase()} (paciente)
-${row[4]} (hora turno)
-❌CANCELADO`;
+      const clinicResponse = [
+        `${row[6]} (profesional)`,
+        `${row[2].toUpperCase()}, ${row[1].toUpperCase()} (paciente)`,
+        "❌CANCELADO",
+      ].join("\n");
+
+      return clinicResponse;
     };
 
     // Si el paciente tiene un turno y la respuesta es "cancelar"
@@ -245,8 +205,6 @@ ${row[4]} (hora turno)
       const turnIndex = Number(response) - 1;
       if (turnIndex >= patientAppointments.length) {
         return {
-          reprogrammingPhoneNumber: null,
-          clinicResponse: null,
           patientResponse:
             "No existe turno con ese número. Por favor vuelva a intentarlo o comuníquese con la clínica.",
         };
@@ -269,14 +227,13 @@ ${row[4]} (hora turno)
     // Respuesta no válida
     const reprogrammingPhoneNumber = patientAppointments[0].row[7];
     const clinicPhoneNumber = patientAppointments[0].row[8];
+    const patientResponse = [
+      `👉🏽Si usted quiere reprogramar su turno favor de comunicarse al +${reprogrammingPhoneNumber}. Muchas gracias!`,
+      `👉🏽Por cualquier otra consulta comuníquese con la clínica directamente: +${clinicPhoneNumber}.`,
+      "ESTA LINEA NO RESPONDE MENSAJES",
+    ].join("\n\n");
     return {
-      reprogrammingPhoneNumber: null,
-      clinicResponse: null,
-      patientResponse: `👉🏽Si usted quiere reprogramar su turno favor de comunicarse al +${reprogrammingPhoneNumber}. Muchas gracias!
-  
-  👉🏽Por cualquier otra consulta comuníquese con la clínica directamente: +${clinicPhoneNumber}.
-  
-  ESTA LINEA NO RESPONDE MENSAJES`,
+      patientResponse,
     };
   }
 }
