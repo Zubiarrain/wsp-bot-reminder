@@ -27,7 +27,7 @@ class AppointmentService {
     const message = [
       `Hola ${appointments[0].patientName}, tiene los siguientes turnos para mañana:`,
       `${turnosListado}`,
-      `❌ Si desea cancelar este turno, responda con la palabra "Cancelar".`,
+      `❌ Si desea cancelar alguno, responda solo con el *número* correspondiente al turno. Muchas gracias!.`,
       `👉🏽Para reprogramaciones, comuníquese al +${appointments[0].reprogrammingPhoneNumber}.`,
       `👉🏽Por cualquier consulta, contacte a la clínica: +${appointments[0].clinicPhoneNumber}.`,
       "ESTA LINEA NO RESPONDE MENSAJES",
