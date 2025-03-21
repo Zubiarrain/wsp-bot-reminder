@@ -1,13 +1,17 @@
 version: "3.8"
+
+volumes:
+  bot-sessions-data: # Definimos un volumen persistente
+
 services:
   whatsapp-bot:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - PORT=${PORT}
     env_file:
       - .env
     ports:
       - "${PORT}:${PORT}"
+    volumes:
+      - bot-sessions-data:/app/bot_sessions # Montamos el volumen en la carpeta bot_sessions
     restart: unless-stopped
